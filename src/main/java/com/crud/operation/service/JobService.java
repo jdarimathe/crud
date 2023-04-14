@@ -1,51 +1,41 @@
 package com.crud.operation.service;
 
-import com.crud.operation.exception.ResourceFoundException;
+import com.couchbase.client.java.kv.GetResult;
 import com.crud.operation.model.Job;
 import com.crud.operation.repository.JobRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.transaction.Transactional;
-import java.util.List;
-import java.util.Optional;
-
 @Service
-@Transactional
 public class JobService {
 
     @Autowired
-    private JobRepository jobRepository;
+    private static JobRepository jobRepository = new JobRepository();
 
-    public Job saveJob(Job job) throws ResourceFoundException {
-        Optional<Job> savedJob = jobRepository.findById(job.getId());
-        if (savedJob.isPresent()) {
-            throw new ResourceFoundException("Job already exist with given ID:" + job.getId());
-        }
+    public void saveJob(Job job) {
+        jobRepository.getBucket().defaultCollection().upsert(job.getId(), job);
 
-        return jobRepository.save(job);
     }
 
+    public Job getJobById(String id) {
+        GetResult getResult = jobRepository.getBucket().defaultCollection().get(id);
 
-    public List<Job> getJobs() {
-        return jobRepository.findAll();
+        Job job = new Job();
+
+        job.setId(getResult.contentAsObject().get("id").toString());
+        job.setJobDescription(getResult.contentAsObject().get("jobDescription").toString());
+        job.setJobLocation(getResult.contentAsObject().get("jobLocation").toString());
+        job.setJobName(getResult.contentAsObject().get("jobName").toString());
+        job.setJobType(getResult.contentAsObject().get("jobType").toString());
+
+        return job;
     }
 
-    public Job updateJob(Job job) {
-
-        return jobRepository.save(job);
+    public void updateJob(Job job) {
+        jobRepository.getBucket().defaultCollection().replace(job.getId(), job);
     }
 
-    public Job getJobById(long id) throws ResourceFoundException {
-        Optional<Job> job_new = jobRepository.findById(id);
-        if (!job_new.isPresent()) {
-            throw new ResourceFoundException("Resource Not Found!!!!");
-        } else {
-            return job_new.get();
-        }
-    }
-
-    public void deleteJob(Long id) {
-        jobRepository.deleteById(id);
+    public void deleteJob(String id){
+        jobRepository.getBucket().defaultCollection().remove(id);
     }
 }
